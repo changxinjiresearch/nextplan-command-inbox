@@ -39,7 +39,8 @@ GitHub Issue creation proves only **submitted**. Processing is confirmed by a pe
 `https://github.com/changxinjiresearch/LifeOS/blob/main/events/receipts/issue-N.json`
 
 - `verified`: actual state builder finished and postcondition matched at execution time
-- `pending_confirmation`: deletion request staged; no delete executed
+- `pending_confirmation`: deletion request staged; no delete executed yet
+- `confirmed`: original deletion request matched a separate `verified` confirmation Issue; request is closed in the operation ledger
 - `rejected`: invalid command, missing target, wrong date, mismatch, etc.
 - receipt absent: unverified or not processed; check Actions history
 
@@ -49,7 +50,7 @@ The `verified` result is a historical execution record; a later valid operation 
 
 - [Transport smoke #2](https://github.com/changxinjiresearch/nextplan-command-inbox/issues/2) — verified.
 - [Production sandbox Issues #3–#13](https://github.com/changxinjiresearch/nextplan-command-inbox/issues/3) — create, edit, task, date, two-step task/project deletion and deliberate rejection all matched expected receipts.
-- After cleanup, the sandbox project and test deadline were absent from canonical state; nine pre-existing projects remained, with each successful QA event recorded once.
+- After cleanup, the sandbox project and test deadline were absent from canonical state; nine pre-existing projects remained, with each successful QA event recorded once. Requests #9 and #11 have since been reconciled to `confirmed` by verification Issues #10 and #12.
 - GitHub CI includes 100 consecutive commands, deduplication, malformed inputs, simulated failure-and-recovery and no-op poll checks.
 
 ## Limitations
