@@ -1,45 +1,57 @@
 # NextPlan Command Inbox
 
-**Status: LIVE — GitHub Actions transport verified on 13 October 2026.**
+**Status: LIVE — production write/read acceptance verified on 14 October 2026.**
 
-This repository is the deliberately **public** command inbox for NextPlan. ChatGPT Plus can submit an Issue using the user's existing GitHub connection. A GitHub Actions workflow in [LifeOS](https://github.com/changxinjiresearch/LifeOS) periodically processes authorized commands and updates the existing canonical NextPlan project data.
+This deliberately PUBLIC repository carries explicit ChatGPT Plus commands to NextPlan without a Chrome listener or a paid Railway instance. [LifeOS GitHub Actions](https://github.com/changxinjiresearch/LifeOS/actions/workflows/nextplan-issue-inbox.yml) scans Issues on an approximately five-minute schedule (GitHub may delay runs). The app keeps reading the same canonical LifeOS `state.json`.
 
-No Chrome message listener, self-hosted API or paid Railway service is required for this transport.
+## Submit an operation
 
-## How to send a command
-
-Create an Issue with a title beginning with `[NextPlan]`. Its body must contain one JSON object. Example:
+Create a GitHub Issue authored by `changxinjiresearch` with a title starting **`[NextPlan]`** and a JSON-only body, for example:
 
 ```json
 {"version":3,"action":"update_project","project_id":"research-neuri","changes":{"status":"completed"}}
 ```
 
-Supported actions:
+Exact IDs are required. Supported commands:
 
-- `update_project`: status (planned, active, waiting, blocked, completed), priority (1–5), or next_action (short text)
-- `create_project`: project_id, name, optional category, next_action and priority
-- `create_task`: project_id and name; optional task_id
-- `complete_task`: project_id and task_id
-- `update_milestone`: project_id, milestone_id and status
+| Action | Required fields |
+|---|---|
+| `create_project` | `project_id`, `name`; optional `category`, `priority`, `next_action` |
+| `update_project` | `project_id`, `changes` with status, priority, progress, or next_action |
+| `create_task` | `project_id`, `name`; optional `task_id` |
+| `update_task` | `project_id`, `task_id`, `changes` with status, name, deadline, or prep_days |
+| `complete_task` | `project_id`, `task_id` |
+| `update_milestone` | `project_id`, `milestone_id`, `status` |
+| `set_deadline` | `project_id`, `title`, `date` (YYYY-MM-DD); optional deadline_id, task_id |
+| `remove_deadline` | `project_id`, `deadline_id` |
+| `request_delete_task` | `project_id`, `task_id`, `expected_name` (must match existing task) |
+| `request_delete_project` | `project_id`, `expected_name` (must match existing project) |
+| `confirm_delete` | second, separate Issue: `project_id`, `request_issue`, `expected_name`, `confirmation: "CONFIRM DELETE N"`; supply task_id for task deletion |
 
-To avoid accidents, destructive deletes are **not** accepted through public Issues. Commands must use exact project IDs, not guessed names.
+Deleting requires two separate Issues in order, plus the user's explicit confirmation before creating the second. A request Issue receives `pending_confirmation` and changes no project data. The confirmation Issue must match the request and target identity. This is a two-step application-level confirmation, **not** independent authentication or protection against compromise of the GitHub owner account.
 
-**Never put access tokens, passwords, private conversations or sensitive personal data into Issue titles/bodies. All Issues in this repository are public.**
+**PUBLIC means PUBLIC. Never submit passwords, API keys, private letters, personal or patient data, or chat history.**
 
-## Timing and receipts
+## Receipts
 
-[LifeOS GitHub Actions](https://github.com/changxinjiresearch/LifeOS/actions/workflows/nextplan-issue-inbox.yml) checks for commands on a five-minute schedule, with delays possible. An Issue being created means **submitted**, not applied.
-
-After processing Issue number `N`, the durable result is saved at:
+GitHub Issue creation proves only **submitted**. Processing is confirmed by a persisted receipt at:
 
 `https://github.com/changxinjiresearch/LifeOS/blob/main/events/receipts/issue-N.json`
 
-The `status` must say `verified` before reporting success. `rejected` contains an error reason. No receipt means it has not been confirmed yet.
+- `verified`: actual state builder finished and postcondition matched at execution time
+- `pending_confirmation`: deletion request staged; no delete executed
+- `rejected`: invalid command, missing target, wrong date, mismatch, etc.
+- receipt absent: unverified or not processed; check Actions history
 
-[Issue #2](https://github.com/changxinjiresearch/nextplan-command-inbox/issues/2) was the first successful end-to-end delivery test; its [verified receipt](https://github.com/changxinjiresearch/LifeOS/blob/main/events/receipts/issue-2.json) was checked against the actual canonical state.
+The `verified` result is a historical execution record; a later valid operation may intentionally change the same field.
 
-## Reliability
+## Acceptance
 
-GitHub Issue numbers map to deterministic event IDs. Previously processed Issues cannot apply a second event. The workflow uses GitHub's built-in repository write token, rebuilds canonical state with the existing engine, verifies each postcondition, and commits changes with receipts in one Git commit. Git conflicts cause a clean re-run against the latest main branch.
+- [Transport smoke #2](https://github.com/changxinjiresearch/nextplan-command-inbox/issues/2) — verified.
+- [Production sandbox Issues #3–#13](https://github.com/changxinjiresearch/nextplan-command-inbox/issues/3) — create, edit, task, date, two-step task/project deletion and deliberate rejection all matched expected receipts.
+- After cleanup, the sandbox project and test deadline were absent from canonical state; nine pre-existing projects remained, with each successful QA event recorded once.
+- GitHub CI includes 100 consecutive commands, deduplication, malformed inputs, simulated failure-and-recovery and no-op poll checks.
 
-Limitations: ChatGPT Plus does not guarantee tool invocation for every normal message; GitHub schedule may run later than planned; this does not promise zero downtime. Always check a real Issue link and the final receipt.
+## Limitations
+
+ChatGPT Plus may not automatically invoke GitHub for every ordinary message. GitHub schedules can be late or disabled by quota/settings; there is no guaranteed seconds-level delivery. Do not say NextPlan has updated unless the Issue exists **and** its receipt was independently verified. The GitHub-based backend is event-sourced in `state.json`; Railway and the separate SQLite v3 service are not operating as the authority.
